@@ -218,11 +218,10 @@ void csi_collector_init(void)
     };
     ESP_ERROR_CHECK(esp_wifi_set_csi_config(&csi_config));
 #elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
-    /* C3/C6 use wifi_csi_acquire_config_t which has different field names.
-     * We'll use a braced initializer that works for the basic 'enable' use case. */
+    /* C3/C6 use wifi_csi_acquire_config_t in v5.x which has different members.
+     * We'll initialize with zeros and just enable it. */
     wifi_csi_config_t csi_config = { 0 };
     esp_wifi_set_csi_config(&csi_config);
-    /* In newer IDF versions, we just call esp_wifi_set_csi(true). */
 #else
     /* Fallback for original ESP32 / other targets */
     wifi_csi_config_t csi_config = {
