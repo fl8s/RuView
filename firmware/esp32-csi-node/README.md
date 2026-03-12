@@ -1,11 +1,11 @@
-# ESP32-S3 CSI Node Firmware
+# ESP32-S3 / C3 / C6 CSI Node Firmware
 
-**Turn a $7 microcontroller into a privacy-first human sensing node.**
+**Turn a $5-9 microcontroller into a privacy-first human sensing node.**
 
-This firmware captures WiFi Channel State Information (CSI) from an ESP32-S3 and transforms it into real-time presence detection, vital sign monitoring, and programmable sensing -- all without cameras or wearables. Part of the [WiFi-DensePose](../../README.md) project.
+This firmware captures WiFi Channel State Information (CSI) from ESP32-S3, ESP32-C3, and ESP32-C6 devices and transforms it into real-time presence detection, vital sign monitoring, and programmable sensing -- all without cameras or wearables. Part of the [WiFi-DensePose](../../README.md) project.
 
 [![ESP-IDF v5.2](https://img.shields.io/badge/ESP--IDF-v5.2-blue.svg)](https://docs.espressif.com/projects/esp-idf/en/v5.2/)
-[![Target: ESP32-S3](https://img.shields.io/badge/target-ESP32--S3-purple.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
+[![Target: S3/C3/C6](https://img.shields.io/badge/target-S3%2FC3%2FC6-purple.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green.svg)](../../LICENSE)
 [![Binary: ~943 KB](https://img.shields.io/badge/binary-~943%20KB-orange.svg)](#memory-budget)
 [![CI: Docker Build](https://img.shields.io/badge/CI-Docker%20Build-brightgreen.svg)](../../.github/workflows/firmware-ci.yml)
@@ -25,24 +25,34 @@ This firmware captures WiFi Channel State Information (CSI) from an ESP32-S3 and
 
 For users who want to get running fast. Detailed explanations follow in later sections.
 
-### 1. Build (Docker -- the only reliable method)
+### 1. Build (Docker)
+
+Use the provided `build.sh` script to build for your target.
 
 ```bash
 # From the repository root:
-MSYS_NO_PATHCONV=1 docker run --rm \
-  -v "$(pwd)/firmware/esp32-csi-node:/project" -w /project \
-  espressif/idf:v5.2 bash -c \
-  "rm -rf build sdkconfig && idf.py set-target esp32s3 && idf.py build"
+cd firmware/esp32-csi-node
+./build.sh esp32s3  # Or esp32c3 / esp32c6
 ```
 
 ### 2. Flash
 
+Find your serial port (e.g., `COM7` or `/dev/ttyACM0`).
+
 ```bash
+# For ESP32-S3 (8MB)
 python -m esptool --chip esp32s3 --port COM7 --baud 460800 \
   write_flash --flash_mode dio --flash_size 8MB \
-  0x0 firmware/esp32-csi-node/build/bootloader/bootloader.bin \
-  0x8000 firmware/esp32-csi-node/build/partition_table/partition-table.bin \
-  0x10000 firmware/esp32-csi-node/build/esp32-csi-node.bin
+  0x0 build/bootloader/bootloader.bin \
+  0x8000 build/partition_table/partition-table.bin \
+  0x10000 build/esp32-csi-node.bin
+
+# For ESP32-C3 / C6 (4MB)
+python -m esptool --chip esp32c3 --port COM7 --baud 460800 \
+  write_flash --flash_mode dio --flash_size 4MB \
+  0x0 build/bootloader/bootloader.bin \
+  0x8000 build/partition_table/partition-table.bin \
+  0x10000 build/esp32-csi-node.bin
 ```
 
 ### 3. Provision WiFi credentials (no reflash needed)
@@ -75,11 +85,12 @@ curl http://<ESP32_IP>:8032/wasm/list
 
 | Component | Specification | Notes |
 |-----------|---------------|-------|
-| **SoC** | ESP32-S3 (QFN56) | Dual-core Xtensa LX7, 240 MHz |
-| **Flash** | 8 MB | ~943 KB used by firmware |
-| **PSRAM** | 8 MB | 640 KB used for WASM arenas |
-| **USB bridge** | Silicon Labs CP210x | Install the [CP210x driver](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers) |
-| **Recommended boards** | ESP32-S3-DevKitC-1, XIAO ESP32-S3 | Any ESP32-S3 with 8 MB flash works |
+| **SoC (S3)** | ESP32-S3 | Dual-core Xtensa LX7, 240 MHz |
+| **SoC (C3/C6)**| ESP32-C3 / C6 | Single-core RISC-V, 160 MHz |
+| **Flash** | 4 MB - 8 MB | ~950 KB used by firmware |
+| **PSRAM** | 2 MB - 8 MB | Optional for S3, not used on C3/C6 |
+| **USB bridge** | Silicon Labs / Internal | Install [CP210x drivers](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers) if needed |
+| **Recommended** | DevKitC-1 (S3), Super Mini (C3), M5NanoC6 (C6) | |
 | **Deployment** | 3-6 nodes per room | Multistatic mesh for 360-degree coverage |
 
 > **Tip:** A single node provides presence and vital signs along its line of sight. Multiple nodes (3-6) create a multistatic mesh that resolves 3D pose with <30 mm jitter and zero identity swaps.

@@ -49,6 +49,10 @@ jobs:
           # Fallback if xxd is in different package or named differently
           which xxd || apt-get install -y vim-common || true
 
+      - name: Upgrade idf-component-manager
+        run: |
+          /opt/esp/python_env/idf5.2_py3.10_env/bin/python -m pip install --upgrade idf-component-manager
+
       - name: Build firmware
         working-directory: firmware/esp32-csi-node
         run: |
@@ -56,7 +60,6 @@ jobs:
           rm -rf build sdkconfig
           cp ${{ matrix.sdkconfig }} sdkconfig.defaults
           idf.py set-target ${{ matrix.target }}
-          idf.py reconfigure
           idf.py build
 
       - name: Verify binary size (< ${{ matrix.max_size }} KB gate)

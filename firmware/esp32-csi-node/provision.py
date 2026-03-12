@@ -120,7 +120,7 @@ def generate_nvs_binary(csv_content, size):
                 os.unlink(p)
 
 
-def flash_nvs(port, baud, nvs_bin):
+def flash_nvs(port, baud, nvs_bin, chip="esp32s3"):
     """Flash the NVS partition binary to the ESP32."""
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
         f.write(nvs_bin)
@@ -129,6 +129,7 @@ def flash_nvs(port, baud, nvs_bin):
     try:
         cmd = [
             sys.executable, "-m", "esptool",
+            "--chip", chip,
             "--port", port,
             "--baud", str(baud),
             "write_flash",
@@ -148,6 +149,8 @@ def main():
     )
     parser.add_argument("--port", required=True, help="Serial port (e.g. COM7, /dev/ttyUSB0)")
     parser.add_argument("--baud", type=int, default=460800, help="Flash baud rate (default: 460800)")
+    parser.add_argument("--chip", default="esp32s3", choices=["esp32s3", "esp32c3", "esp32c6"],
+                        help="Target chip (default: esp32s3)")
     parser.add_argument("--ssid", help="WiFi SSID")
     parser.add_argument("--password", help="WiFi password")
     parser.add_argument("--target-ip", help="Aggregator host IP (e.g. 192.168.1.20)")
@@ -233,11 +236,11 @@ def main():
         with open(out, "wb") as f:
             f.write(nvs_bin)
         print(f"NVS binary saved to {out} ({len(nvs_bin)} bytes)")
-        print(f"Flash manually: python -m esptool --port {args.port} "
+        print(f"Flash manually: python -m esptool --chip {args.chip} --port {args.port} "
               f"write_flash 0x9000 {out}")
         return
 
-    flash_nvs(args.port, args.baud, nvs_bin)
+    flash_nvs(args.port, args.baud, nvs_bin, chip=args.chip)
 
 
 if __name__ == "__main__":

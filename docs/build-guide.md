@@ -383,13 +383,13 @@ The multi-stage `Dockerfile` provides four targets:
 
 ## 6. ESP32 Hardware Setup
 
-Uses ESP32-S3 boards as WiFi CSI sensor nodes. See [ADR-012](adr/ADR-012-esp32-csi-sensor-mesh.md) for the full specification.
+Uses ESP32-S3, ESP32-C3, or ESP32-C6 boards as WiFi CSI sensor nodes. See [ADR-012](adr/ADR-012-esp32-csi-sensor-mesh.md) for the full specification and [ESP32-C3 / C6 Guide](esp32c3-c6-setup.md) for target-specific notes.
 
-### Bill of Materials (Starter Kit -- $54)
+### Bill of Materials (Starter Kit -- ~$35-54)
 
 | Item | Qty | Unit Cost | Total |
 |------|-----|-----------|-------|
-| ESP32-S3-DevKitC-1 | 3 | $10 | $30 |
+| ESP32-S3 / C3 / C6 | 3 | $5-10 | $15-30 |
 | USB-A to USB-C cables | 3 | $3 | $9 |
 | USB power adapter (multi-port) | 1 | $15 | $15 |
 | Consumer WiFi router (any) | 1 | $0 (existing) | $0 |
@@ -415,13 +415,44 @@ git checkout v5.2  # Pin to tested version
 . ./export.sh
 ```
 
-### Flash a node
+### Build and Flash
+
+The most reliable way to build is using the provided Docker-based `build.sh` script, which supports S3, C3, and C6 targets.
 
 ```bash
 cd firmware/esp32-csi-node
 
-# Set target chip
-idf.py set-target esp32s3
+# Build for your target (esp32s3, esp32c3, or esp32c6)
+./build.sh esp32c3
+```
+
+To flash manually:
+
+```bash
+# S3 (8MB)
+python -m esptool --chip esp32s3 --port COM7 --baud 460800 \
+  write_flash --flash_mode dio --flash_size 8MB \
+  0x0 build/bootloader/bootloader.bin \
+  0x8000 build/partition_table/partition-table.bin \
+  0x10000 build/esp32-csi-node.bin
+
+# C3 / C6 (4MB)
+python -m esptool --chip esp32c3 --port COM7 --baud 460800 \
+  write_flash --flash_mode dio --flash_size 4MB \
+  0x0 build/bootloader/bootloader.bin \
+  0x8000 build/partition_table/partition-table.bin \
+  0x10000 build/esp32-csi-node.bin
+```
+
+### Provisioning (WiFi & Target IP)
+
+Use the `provision.py` script to configure WiFi and the target aggregator IP without re-flashing.
+
+```bash
+python provision.py --port COM7 --ssid "YourSSID" --password "Pass" --target-ip 192.168.1.XX
+```
+
+### Manual Configuration (ESP-IDF)
 
 # Configure WiFi SSID/password and aggregator IP
 idf.py menuconfig
