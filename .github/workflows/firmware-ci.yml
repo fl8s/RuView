@@ -45,7 +45,9 @@ jobs:
       - name: Install dependencies (xxd)
         run: |
           apt-get update
-          apt-get install -y xxd
+          apt-get install -y xxd || true
+          # Fallback if xxd is in different package or named differently
+          which xxd || apt-get install -y vim-common || true
 
       - name: Build firmware
         working-directory: firmware/esp32-csi-node
