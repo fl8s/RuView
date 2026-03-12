@@ -88,11 +88,13 @@ class SlidingWindowCounter:
         self.limit = limit
         self.requests = deque()
         self._lock = asyncio.Lock()
+        self.last_access = time.time()
     
     async def is_allowed(self) -> Tuple[bool, RateLimitInfo]:
         """Check if request is allowed."""
         async with self._lock:
-            now = time.time()
+            self.last_access = time.time()
+            now = self.last_access
             window_start = now - self.window_size
             
             # Remove old requests outside the window
@@ -168,16 +170,13 @@ class RateLimiter:
         now = time.time()
         cutoff = now - (self.window_size * 2)  # Keep data for 2 windows
         
-        # Cleanup sliding windows
-        keys_to_remove = []
-        for key, window in self._sliding_windows.items():
-            # Remove old requests
-            while window.requests and window.requests[0] < cutoff:
-                window.requests.popleft()
-            
-            # Remove empty windows
-            if not window.requests:
-                keys_to_remove.append(key)
+        # Cleanup sliding windows by removing those that haven't been accessed recently.
+        # This is much faster than iterating over every request in every window.
+        # Per-window request cleanup happens lazily in is_allowed().
+        keys_to_remove = [
+            key for key, window in self._sliding_windows.items()
+            if window.last_access < cutoff
+        ]
         
         for key in keys_to_remove:
             del self._sliding_windows[key]

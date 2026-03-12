@@ -33,6 +33,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Fix dubious ownership
+        run: git config --global --add safe.directory /__w/RuView/RuView
+
       - name: Build firmware
         working-directory: firmware/esp32-csi-node
         run: |
@@ -40,6 +43,7 @@ jobs:
           rm -rf build sdkconfig
           cp ${{ matrix.sdkconfig }} sdkconfig.defaults
           idf.py set-target ${{ matrix.target }}
+          idf.py reconfigure
           idf.py build
 
       - name: Verify binary size (< ${{ matrix.max_size }} KB gate)
