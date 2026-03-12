@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     secret_key: str = Field(..., description="Secret key for JWT tokens")
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
     jwt_expire_hours: int = Field(default=24, description="JWT token expiration in hours")
-    allowed_hosts: List[str] = Field(default=["*"], description="Allowed hosts")
-    cors_origins: List[str] = Field(default=["*"], description="CORS allowed origins")
+    allowed_hosts: List[str] = Field(default=[], description="Allowed hosts")
+    cors_origins: List[str] = Field(default=[], description="CORS allowed origins")
     
     # Rate limiting settings
     rate_limit_requests: int = Field(default=100, description="Rate limit requests per window")
