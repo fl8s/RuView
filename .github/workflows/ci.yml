@@ -115,7 +115,7 @@ jobs:
         REDIS_URL: redis://localhost:6379/0
         ENVIRONMENT: test
       run: |
-        pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=html --junitxml=junit.xml
+        pytest v1/tests/unit/ -v --cov=src --cov-report=xml --cov-report=html --junitxml=junit.xml
 
     - name: Run integration tests
       env:
@@ -123,7 +123,7 @@ jobs:
         REDIS_URL: redis://localhost:6379/0
         ENVIRONMENT: test
       run: |
-        pytest tests/integration/ -v --junitxml=integration-junit.xml
+        pytest v1/tests/integration/ -v --junitxml=integration-junit.xml
 
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4
@@ -197,6 +197,8 @@ jobs:
             sdkconfig: sdkconfig.defaults.esp32c6
     steps:
       - uses: actions/checkout@v4
+      - name: Fix dubious ownership
+        run: git config --global --add safe.directory /__w/RuView/RuView
       - name: Build firmware
         working-directory: firmware/esp32-csi-node
         run: |
@@ -204,6 +206,7 @@ jobs:
           rm -rf build sdkconfig
           cp ${{ matrix.sdkconfig }} sdkconfig.defaults
           idf.py set-target ${{ matrix.target }}
+          idf.py reconfigure
           idf.py build
       - name: Prepare assets
         run: |
