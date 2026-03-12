@@ -233,7 +233,7 @@ def main():
         with open(out, "wb") as f:
             f.write(nvs_bin)
         print(f"NVS binary saved to {out} ({len(nvs_bin)} bytes)")
-        print(f"Flash manually: python -m esptool --chip esp32s3 --port {args.port} "
+        print(f"Flash manually: python -m esptool --port {args.port} "
               f"write_flash 0x9000 {out}")
         return
 

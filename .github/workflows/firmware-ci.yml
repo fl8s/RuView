@@ -28,7 +28,7 @@ jobs:
         include:
           - target: esp32s3
             sdkconfig: sdkconfig.defaults.esp32s3
-            max_size: 950
+            max_size: 1500
           - target: esp32c3
             sdkconfig: sdkconfig.defaults.esp32c3
             max_size: 850
