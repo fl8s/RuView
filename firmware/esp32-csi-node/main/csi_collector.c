@@ -206,6 +206,7 @@ void csi_collector_init(void)
 
     ESP_LOGI(TAG, "Promiscuous mode enabled for CSI capture");
 
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
     wifi_csi_config_t csi_config = {
         .lltf_en = true,
         .htltf_en = true,
@@ -215,8 +216,19 @@ void csi_collector_init(void)
         .manu_scale = false,
         .shift = false,
     };
-
     ESP_ERROR_CHECK(esp_wifi_set_csi_config(&csi_config));
+#elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
+    /* C3/C6 use wifi_csi_acquire_config_t in v5.x which has different members.
+     * We'll initialize with zeros and just enable it. */
+    wifi_csi_config_t csi_config = { 0 };
+    esp_wifi_set_csi_config(&csi_config);
+#else
+    /* Fallback for original ESP32 / other targets */
+    wifi_csi_config_t csi_config = {
+        .enable = true,
+    };
+    esp_wifi_set_csi_config(&csi_config);
+#endif
     ESP_ERROR_CHECK(esp_wifi_set_csi_rx_cb(wifi_csi_callback, NULL));
     ESP_ERROR_CHECK(esp_wifi_set_csi(true));
 

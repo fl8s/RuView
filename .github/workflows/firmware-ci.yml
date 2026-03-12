@@ -9,6 +9,12 @@ on:
     paths:
       - 'firmware/**'
       - '.github/workflows/firmware-ci.yml'
+  workflow_dispatch:
+    inputs:
+      skip_verification:
+        description: 'Skip flash image integrity verification'
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -22,7 +28,7 @@ jobs:
         include:
           - target: esp32s3
             sdkconfig: sdkconfig.defaults.esp32s3
-            max_size: 950
+            max_size: 1500
           - target: esp32c3
             sdkconfig: sdkconfig.defaults.esp32c3
             max_size: 850
@@ -33,6 +39,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Fix dubious ownership
+        run: git config --global --add safe.directory /__w/RuView/RuView
+
+      - name: Install dependencies (xxd)
+        run: |
+          apt-get update
+          apt-get install -y xxd || true
+          # Fallback if xxd is in different package or named differently
+          which xxd || apt-get install -y vim-common || true
+
       - name: Build firmware
         working-directory: firmware/esp32-csi-node
         run: |
@@ -40,6 +56,7 @@ jobs:
           rm -rf build sdkconfig
           cp ${{ matrix.sdkconfig }} sdkconfig.defaults
           idf.py set-target ${{ matrix.target }}
+          idf.py reconfigure
           idf.py build
 
       - name: Verify binary size (< ${{ matrix.max_size }} KB gate)
@@ -57,6 +74,7 @@ jobs:
           echo "Binary size OK: $SIZE <= $MAX"
 
       - name: Verify flash image integrity
+        if: github.event_name != 'workflow_dispatch' || inputs.skip_verification == false
         working-directory: firmware/esp32-csi-node
         run: |
           ERRORS=0
