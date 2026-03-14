@@ -242,9 +242,15 @@ class LinuxWifiCollector:
                 time.sleep(sleep_time)
 
     def _read_sample(self) -> WifiSample:
-        """Read one sample from the OS."""
-        rssi, noise, quality = self._read_proc_wireless()
-        tx_bytes, rx_bytes, retries = self._read_iw_station()
+        """Read one sample from the OS using efficient /proc file reads.
+
+        Avoids the high overhead of subprocess calls (like 'iw') at 10Hz.
+        Note that /proc/net/dev provides interface-wide stats, which may
+        differ from station-specific stats but are sufficient for sensing.
+        """
+        rssi, noise, quality, retries = self._read_proc_wireless()
+        rx_bytes, tx_bytes = self._read_proc_net_dev()
+
         return WifiSample(
             timestamp=time.time(),
             rssi_dbm=rssi,
@@ -256,8 +262,11 @@ class LinuxWifiCollector:
             interface=self._interface,
         )
 
-    def _read_proc_wireless(self) -> tuple[float, float, float]:
-        """Parse /proc/net/wireless for the configured interface."""
+    def _read_proc_wireless(self) -> tuple[float, float, float, int]:
+        """Parse /proc/net/wireless for the configured interface.
+
+        Returns (signal, noise, quality, retries).
+        """
         try:
             with open("/proc/net/wireless", "r") as f:
                 for line in f:
@@ -265,12 +274,15 @@ class LinuxWifiCollector:
                         # Format: iface: status quality signal noise ...
                         parts = line.split()
                         # parts[0] = "wlan0:", parts[2]=quality, parts[3]=signal, parts[4]=noise
+                        # parts[5-9] = discarded packets (nwid, crypt, frag, retry, misc)
                         quality_raw = float(parts[2].rstrip("."))
                         signal_raw = float(parts[3].rstrip("."))
                         noise_raw = float(parts[4].rstrip("."))
+                        retries = int(parts[8]) if len(parts) > 8 else 0
+
                         # Normalise quality to 0..1 (max is typically 70)
                         quality = min(1.0, max(0.0, quality_raw / 70.0))
-                        return signal_raw, noise_raw, quality
+                        return signal_raw, noise_raw, quality, retries
         except (FileNotFoundError, IndexError, ValueError) as exc:
             raise RuntimeError(
                 f"Failed to read /proc/net/wireless for {self._interface}: {exc}"
@@ -279,24 +291,21 @@ class LinuxWifiCollector:
             f"Interface {self._interface} not found in /proc/net/wireless"
         )
 
-    def _read_iw_station(self) -> tuple[int, int, int]:
-        """Run ``iw dev <iface> station dump`` and parse TX/RX/retries."""
+    def _read_proc_net_dev(self) -> tuple[int, int]:
+        """Parse /proc/net/dev for RX and TX bytes for the configured interface."""
         try:
-            result = subprocess.run(
-                ["iw", "dev", self._interface, "station", "dump"],
-                capture_output=True,
-                text=True,
-                timeout=2.0,
-            )
-            text = result.stdout
-
-            tx_bytes = self._extract_int(text, r"tx bytes:\s*(\d+)")
-            rx_bytes = self._extract_int(text, r"rx bytes:\s*(\d+)")
-            retries = self._extract_int(text, r"tx retries:\s*(\d+)")
-            return tx_bytes, rx_bytes, retries
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            # iw not installed or timed out -- degrade gracefully
-            return 0, 0, 0
+            with open("/proc/net/dev", "r") as f:
+                for line in f:
+                    if self._interface in line:
+                        # Format: iface: rx_bytes rx_packets ... tx_bytes tx_packets ...
+                        parts = line.split()
+                        # parts[0] is "iface:", parts[1] is rx_bytes, parts[9] is tx_bytes
+                        rx_bytes = int(parts[1])
+                        tx_bytes = int(parts[9])
+                        return rx_bytes, tx_bytes
+        except (FileNotFoundError, IndexError, ValueError) as exc:
+            logger.warning("Failed to read /proc/net/dev: %s", exc)
+        return 0, 0
 
     @staticmethod
     def _extract_int(text: str, pattern: str) -> int:
